@@ -1,0 +1,101 @@
+# Pocket Turbo Kingdom（口袋涡轮王国）
+
+> 卡通幻想风 RC 玩具车 3D 竞速网页游戏 —— 真实 3D 几何 + 真实物理，浏览器里直接开跑。
+
+![three.js](https://img.shields.io/badge/three.js-0.174-ff6a00)
+![rapier](https://img.shields.io/badge/rapier-0.17.3-4d88ff)
+![typescript](https://img.shields.io/badge/typescript-5.7-3178c6)
+![vite](https://img.shields.io/badge/vite-6.4-646cff)
+![license](https://img.shields.io/badge/license-MIT-green)
+
+| 主菜单 | 竞速中 |
+|---|---|
+| ![menu](docs/screenshots/desktop-menu.png) | ![race](docs/screenshots/desktop-race.png) |
+
+| 结算 | 计时幽灵 | 手机菜单 | 手机多点触控 |
+|---|---|---|---|
+| ![results](docs/screenshots/race-results.png) | ![ghost](docs/screenshots/time-trial-ghost.png) | ![mobile](docs/screenshots/mobile-menu.png) | ![touch](docs/screenshots/mobile-multitouch-race.png) |
+
+## 玩法
+
+- **完整竞速闭环**：主菜单 → 选车 → 3 圈竞速（4 名 AI 对手）→ 结算排名
+- **计时模式**：单人 3 圈计时，10 Hz 幽灵回放，本地最佳单圈 / 总圈记录
+- **4 种原创道具**：
+  - 🔋 电池 —— 冲刺加速
+  - 🍌 果皮 —— 放置路障，命中打滑
+  - ⚙️ 齿轮 —— 弹射飞盘，一次反弹
+  - ✨ 萤火虫 —— 追踪导弹，锁定前方对手
+- **漂移 / 跳跃 / 特技**：漂移蓄力松开获得推进，坡道起飞空中可转向
+- **低角度追尾镜头**：贴地视角、射线防穿墙、速度 FOV、撞击震动
+
+## 操作
+
+| 动作 | 键盘 | 手柄 | 触屏 |
+|---|---|---|---|
+| 加速 / 刹车 | W / S | RT / LT | 油门 / 刹车 |
+| 转向 | A D / ← → | 左摇杆 | 左摇杆 |
+| 漂移 | Shift | LB | 漂移键 |
+| 跳跃 | 空格 | A | 跳跃键 |
+| 道具 1 / 2 | Q / E | X / Y | 道具键 |
+| 暂停 / 重置 | Esc / R | Start / B | 暂停键 |
+
+## 快速开始
+
+```bash
+npm install
+npm run dev        # 开发服务器（默认 http://localhost:5173）
+npm run build      # 类型检查 + 生产构建
+npm run preview    # 预览生产构建
+```
+
+## 测试
+
+```bash
+npm test           # 18 个单元/集成测试（固定步长、检查点、道具权重、Rapier 悬挂/漂移/4 车 AI 完赛、存档容错、杯赛数据层）
+npm run test:browser   # Playwright 真实浏览器端到端（34 项检查）
+```
+
+浏览器端到端覆盖：键盘 / 手柄 / CDP 真实多点触控三种输入各跑完 3 圈、
+**屏幕左右方向回归**（用 Three.js 实际相机投影验证 D = 屏幕右、A = 屏幕左，键盘/手柄/触屏三通道）、
+幽灵录制与重载恢复、道具使用与防连发、手动重置、画布缩放、竖屏无溢出、零控制台错误。
+
+## 技术栈
+
+- **Three.js 0.174** —— 渲染；全程序化低多边形资产（赛道、卡丁车、蘑菇/树/城堡布景），零外部美术资源
+- **Rapier 3D (WASM)** —— 刚体 + 4 射线悬挂 + 碰撞；60 Hz 固定步长物理
+- **TypeScript + Vite** —— 严格类型，构建产物约 145 KB gzip（不含 Rapier WASM）
+- **Web Audio** —— 程序化引擎声与音效，无音频文件
+- **localStorage** —— 分模式分车辆记录、幽灵帧、设置；损坏数据自动清洗
+
+## 目录结构
+
+```
+src/
+  core/        Game 主循环、固定步长
+  track/       CatmullRom 闭环赛道、坡道、弯道、捷径、检查点
+  vehicle/     Rapier 卡丁车物理、程序化模型
+  ai/          样条跟随 + 曲率刹车 + 橡皮筋 AI
+  items/       双槽道具系统、对象池
+  camera/      低角度追尾镜头
+  input/       键盘 / 手柄 / 多点触控
+  ui/          菜单、HUD、小地图、结算
+  effects/     实例化粒子
+  audio/       Web Audio 引擎
+  storage/     本地记录
+  network/     未来权威服务器协议契约（仅接口，无假联机）
+  modes/       杯赛数据层（测试用扩展）
+tests/         Vitest 单元 + 物理集成测试
+scripts/       Playwright 浏览器端到端
+```
+
+## 质量档位
+
+低 / 中 / 高三档：像素比上限、阴影、粒子密度、布景数量自动切换；移动端自动降档。
+
+## 许可
+
+MIT。所有 3D 资产、道具、角色均为原创程序化生成，不含任何任天堂素材。
+
+## 关键词
+
+`three.js` `rapier` `wasm` `kart-racing` `arcade-racing` `webgl` `typescript` `vite` `game` `3d-racing` `drift` `ai-opponents` `ghost-replay` `procedural-assets` `mobile-touch` `gamepad`

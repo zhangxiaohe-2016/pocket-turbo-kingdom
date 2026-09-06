@@ -1,0 +1,9 @@
+import { afterEach,beforeEach,describe,it,expect,vi } from 'vitest';
+import { Records } from '../src/storage/Records';
+let memory:Map<string,string>;
+beforeEach(()=>{memory=new Map();vi.stubGlobal('localStorage',{getItem:(k:string)=>memory.get(k)??null,setItem:(k:string,v:string)=>memory.set(k,v)});});afterEach(()=>vi.unstubAllGlobals());
+describe('persistent per-mode per-vehicle records',()=>{
+  it('saves a valid single lap before finishing, then records total and a best-run ghost',()=>{const records=new Records();records.saveLap('time','pip',31);expect(records.get('time','pip')?.total).toBeNull();expect(new Records().get('time','pip')?.lap).toBe(31);const frames=[{t:.1,x:1,y:1,z:1,yaw:0,action:0}];expect(records.save('time','pip',30,95,frames)).toBe(true);expect(records.save('time','pip',32,97,[])).toBe(false);const loaded=new Records();expect(loaded.get('time','pip')?.total).toBe(95);expect(loaded.get('time','pip')?.lap).toBe(30);expect(loaded.get('time','pip')?.ghost).toHaveLength(1);expect(loaded.get('quick','pip')).toBeUndefined();expect(loaded.get('time','lumi')).toBeUndefined();});
+  it('handles corrupt local data and quota failure without breaking a race',()=>{memory.set('ptk-save-v1','{broken');expect(()=>new Records()).not.toThrow();const r=new Records();vi.stubGlobal('localStorage',{getItem:()=>null,setItem:()=>{throw new Error('quota');}});expect(()=>r.save('quick','pip',30,93,[])).not.toThrow();expect(r.available).toBe(false);expect(r.get('quick','pip')?.total).toBe(93);});
+  it('rejects malformed ghost positions and sanitizes settings',()=>{memory.set('ptk-save-v1',JSON.stringify({version:1,records:{test:{lap:32,total:99,ghost:[{t:1,x:'oops'}]}},settings:{quality:'ultra',volume:9,touch:true}}));const r=new Records();expect(r.data.records.test.ghost).toEqual([]);expect(r.data.settings.volume).toBe(1);expect(r.data.settings.touch).toBe(true);expect(r.data.settings.quality).not.toBe('ultra');});
+});
