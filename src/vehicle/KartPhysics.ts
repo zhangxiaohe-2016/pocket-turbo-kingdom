@@ -6,6 +6,7 @@ import type { Controls } from '../input/InputManager';
 import { makeKart, type KartModel } from './KartModel';
 const wrap=(a:number)=>Math.atan2(Math.sin(a),Math.cos(a));
 export class KartPhysics {
+  driverName?:string;score=0;hitsTaken=0;disconnected=false;arenaResetCooldown=0;
   body:RAPIER.RigidBody;collider:RAPIER.Collider;model?:KartModel;
   position=new THREE.Vector3();previous=new THREE.Vector3();renderPosition=new THREE.Vector3();yaw=0;previousYaw=0;speed=0;
   grounded=false;wasGrounded=false;groundNormal=new THREE.Vector3(0,1,0);projection:Projection;
@@ -20,13 +21,13 @@ export class KartPhysics {
     this.body=world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setCanSleep(false).setLinearDamping(.05).setAngularDamping(8).enabledRotations(false,false,false).setCcdEnabled(true));
     this.collider=world.createCollider(RAPIER.ColliderDesc.cuboid(.65,.23,1.05).setMass(spec.mass).setFriction(.05).setRestitution(.15).setActiveEvents(RAPIER.ActiveEvents.COLLISION_EVENTS),this.body);
     if(scene){this.model=makeKart(spec);scene.add(this.model.root);}this.projection=track.project({x:0,y:0,z:0});
-    this.spawn(-.009-Math.floor(id/2)*.009,id%2?2.3:-2.3);this.lastT=this.projection.t;
+    this.spawn(track.arena?id/4+.125:-.009-Math.floor(id/2)*.009,track.arena?0:id%2?2.3:-2.3);this.lastT=this.projection.t;
   }
   spawn(t:number,lane=0){const s=this.track.at(t);this.position.copy(s.p).addScaledVector(s.right,lane);this.position.y+=.85+lane*s.bank;this.yaw=Math.atan2(s.tangent.x,s.tangent.z);this.previousYaw=this.yaw;this.previous.copy(this.position);this.body.setTranslation(this.position,true);this.rotation.setFromAxisAngle(THREE.Object3D.DEFAULT_UP,this.yaw);this.body.setRotation(this.rotation,true);this.body.setLinvel({x:0,y:0,z:0},true);this.body.setAngvel({x:0,y:0,z:0},true);this.drift=false;this.driftCharge=0;this.driftLevel=0;this.stun=0;this.boost=0;this.offTrackTime=0;this.stuckTime=0;this.needsReset=false;this.invulnerable=1.6;this.projection=this.track.project(this.position);this.lastT=this.projection.t;this.airTime=0;this.trick=false;}
-  reset(){this.spawn(this.lastCheckpoint/16+.001,this.id%2?1.5:-1.5);}
+  reset(){if(this.track.arena){if(this.arenaResetCooldown>0&&!this.needsReset)return;this.spawn(this.id/4+.125,0);this.arenaResetCooldown=8;}else this.spawn(this.lastCheckpoint/16+.001,this.id%2?1.5:-1.5);}
   preStep(dt:number,input:Controls,enabled=true){
     this.previous.copy(this.position);this.previousYaw=this.yaw;this.landed=0;this.releasedBoost=0;this.impact=Math.max(0,this.impact-dt*2);
-    for(const key of ['boost','stun','invulnerable','jumpCooldown','itemCooldown','boostPadCooldown'] as const)this[key]=Math.max(0,this[key]-dt);
+    for(const key of ['arenaResetCooldown','boost','stun','invulnerable','jumpCooldown','itemCooldown','boostPadCooldown'] as const)this[key]=Math.max(0,this[key]-dt);
     for(let i=0;i<2;i++)if(this.rolling[i]>0){this.rolling[i]=Math.max(0,this.rolling[i]-dt);if(!this.rolling[i]){this.slots[i]=this.pending[i];this.pending[i]=null;}}
     this.forward.set(Math.sin(this.yaw),0,Math.cos(this.yaw));this.localX.set(this.forward.z,0,-this.forward.x);
     const vel=this.body.linvel();this.velocity.set(vel.x,vel.y,vel.z);this.speed=this.velocity.dot(this.forward);this.wasGrounded=this.grounded;this.grounded=false;this.normal.set(0,0,0);let contacts=0;

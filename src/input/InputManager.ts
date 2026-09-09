@@ -1,12 +1,15 @@
 export interface Controls {throttle:number;brake:number;steer:number;drift:boolean;jump:boolean;item1:boolean;item2:boolean;reset:boolean;pause:boolean;camera:boolean;discard:boolean;backward:boolean}
 export const emptyControls=():Controls=>({throttle:0,brake:0,steer:0,drift:false,jump:false,item1:false,item2:false,reset:false,pause:false,camera:false,discard:false,backward:false});
+const editable=(target:EventTarget|null)=>target instanceof Element&&!!target.closest('input,textarea,select,[contenteditable="true"],[data-selectable]');
 const blocked=['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space','ShiftLeft','ShiftRight'];
 export class InputManager {
   keys=new Set<string>(); private pressed=new Set<string>(); private padPrev:boolean[]=[];
   private touches=new Map<number,string>();private touchEdges=new Set<string>();private joyId=-1;private joyX=0;
   gamepadName='';
   constructor(private root:HTMLElement){
-    window.addEventListener('keydown',e=>{if(blocked.includes(e.code))e.preventDefault();if(!this.keys.has(e.code))this.pressed.add(e.code);this.keys.add(e.code);});
+    for(const name of ['contextmenu','selectstart','dragstart'])root.addEventListener(name,e=>{if(!editable(e.target))e.preventDefault();});
+    root.addEventListener('focusin',e=>{if(editable(e.target))this.clear();});
+    window.addEventListener('keydown',e=>{if(editable(e.target))return;if(blocked.includes(e.code))e.preventDefault();if(!this.keys.has(e.code))this.pressed.add(e.code);this.keys.add(e.code);});
     window.addEventListener('keyup',e=>this.keys.delete(e.code));
     window.addEventListener('blur',()=>this.clear());
     root.addEventListener('pointerdown',e=>{

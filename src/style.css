@@ -8,3 +8,28 @@
 @media(prefers-reduced-motion:reduce){button,#toast,.speed-vignette{transition:none}.item-slot.rolling>span{animation:none}}
 
 .touch-utility{position:absolute;left:28px;bottom:123px;display:flex;gap:6px;pointer-events:auto}.touch-utility button{background:#28564a88;color:#fff3d9;border:1px solid #fff3d944;border-radius:20px;padding:6px 9px;font-size:8px;touch-action:none}@media(max-height:520px){.touch-utility{bottom:111px;left:20px}.touch-utility button{font-size:7px;padding:5px 7px}}
+
+/* LAN lobby */
+.lan-dialog{max-height:90dvh;overflow:auto;width:min(560px,92vw)}
+.lan-dialog h2{font-size:28px}.lan-dialog label{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:12px 0;font-size:14px}
+.lan-dialog input,.lan-dialog select{min-width:0;width:65%;padding:11px;border:1px solid #739788;border-radius:9px;background:#f7f8e9;color:#244b40;font:inherit}
+.lan-actions{display:flex;gap:12px;margin-top:18px}.lan-actions button{flex:1}.lan-actions .primary{padding:15px;font-size:16px}
+.lan-actions button:disabled{opacity:.45;cursor:not-allowed}.lan-code-row{margin:16px 0}.lan-code-row strong{font-size:32px;letter-spacing:5px;margin-left:15px}
+.lan-player{padding:14px 0;border-bottom:1px solid #73978855;font-size:14px}#lan-status{font-size:13px;line-height:1.6;min-height:22px}#lan-address{overflow-wrap:anywhere;font-size:13px}
+#lan-badge{position:fixed;z-index:35;top:110px;left:24px;border-radius:10px;background:#183e35ed;color:#fff9df;padding:8px 12px;font-size:12px;display:flex;align-items:center;gap:14px}#lan-badge[hidden]{display:none}#lan-exit{background:transparent;border:1px solid #ffffff66;color:inherit;border-radius:6px;padding:6px;cursor:pointer}
+#home-actions #lan-btn{margin-top:10px}@media(max-width:600px){#lan-badge{top:96px;left:12px}.lan-dialog h2{font-size:23px}}
+
+/* Gameplay surfaces never invoke text selection or the iOS long-press callout. */
+#app,#app *{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+#app input,#app textarea,#app [contenteditable="true"],#app [data-selectable],#app [data-selectable] *{-webkit-user-select:text;user-select:text;-webkit-touch-callout:default}
+#viewport canvas,#race-hud,#touch-controls,[data-control]{touch-action:none}
+#app button{touch-action:manipulation}#app [data-control]{touch-action:none}
+#app{overscroll-behavior:none}.modal-backdrop{overscroll-behavior:contain}
+.mode-tabs{flex-wrap:wrap}.mode-tabs button{flex:1 1 40%}
+#battle-board{position:absolute;left:28px;top:160px;padding:12px 16px;background:#183247c9;border:1px solid #ffffff33;border-radius:10px;color:#fff5dc;font-size:12px;min-width:170px;pointer-events:none}
+#battle-board>div{display:flex;justify-content:space-between;gap:22px;padding:5px 0}#battle-board>small{opacity:.7;font-size:10px}
+@media(max-width:700px){#battle-board{top:135px;left:12px;padding:6px 9px;min-width:125px;font-size:10px}}
+
+#battle-board span{max-width:145px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media(max-height:500px){#battle-board{top:88px;left:14px;padding:5px 9px;min-width:130px;max-width:190px;font-size:9px}#battle-board>div{padding:2px 0;gap:12px}#battle-board>small{font-size:8px}#battle-board span{max-width:115px}}
+@media(max-height:500px){#lan-badge{top:auto;bottom:7px;left:50%;transform:translateX(-50%);font-size:10px;padding:5px 8px;gap:8px}}

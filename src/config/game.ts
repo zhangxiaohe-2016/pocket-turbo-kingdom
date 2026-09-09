@@ -1,4 +1,4 @@
-export type Mode = 'quick' | 'time' | 'practice';
+export type Mode = 'quick' | 'time' | 'practice' | 'arena';
 export type Quality = 'low' | 'medium' | 'high';
 export type ItemKind = 'battery' | 'peel' | 'gear' | 'firefly';
 export const ITEMS: Record<ItemKind, {name:string; icon:string; color:number}> = {

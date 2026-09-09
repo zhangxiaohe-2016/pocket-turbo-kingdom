@@ -1,24 +1,29 @@
 import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d-compat';
+import { buildArena } from './Arena';
+import { ARENA_RADIUS } from '../config/arena';
 import { CHECKPOINTS } from '../config/game';
 export interface TrackSample {p:THREE.Vector3;tangent:THREE.Vector3;right:THREE.Vector3;bank:number;t:number}
 export interface Projection {t:number;distance:number;lateral:number;height:number;sample:TrackSample;shortcut?:boolean}
 const UP=new THREE.Vector3(0,1,0);
 export class Track {
-  readonly count=512;readonly halfWidth=7.8;readonly curve:THREE.CatmullRomCurve3;readonly length:number;
+  readonly count=512;readonly halfWidth:number=7.8;readonly curve:THREE.CatmullRomCurve3;readonly length:number;
   samples:TrackSample[]=[];group=new THREE.Group();surfaceHandles=new Set<number>();sceneryMeshes:{mesh:THREE.InstancedMesh;max:number}[]=[];
   boostTs=[.065,.46,.79];boxTs=[.025,.235,.425,.65,.895];
   obstacles:{body:RAPIER.RigidBody;mesh:THREE.Group;t:number;phase:number}[]=[];
   shortcut:{a:THREE.Vector3;b:THREE.Vector3;start:number;end:number};
   private obstaclePosition=new THREE.Vector3();
-  constructor(public world:RAPIER.World,scene?:THREE.Scene){
+  constructor(public world:RAPIER.World,scene?:THREE.Scene,public arena=false){
     this.curve=new THREE.CatmullRomCurve3([[0,0,60],[58,1,58],[102,4,28],[105,6,-22],[73,8,-66],[18,3,-83],[-31,0,-60],[-77,2,-77],[-111,5,-40],[-111,3,8],[-75,0,48],[-31,0,40]].map(p=>new THREE.Vector3(...p as [number,number,number])),true,'catmullrom',.45);
+    if(arena)this.halfWidth=ARENA_RADIUS;
     this.curve.arcLengthDivisions=2048;this.curve.updateArcLengths();this.length=this.curve.getLength();
     for(let i=0;i<=this.count;i++)this.samples.push(this.calculate(i/this.count));
     this.shortcut={a:this.at(.485).p.clone(),b:this.at(.635).p.clone(),start:.485,end:.635};
+    if(arena){this.boostTs=[];this.boxTs=Array.from({length:8},(_,i)=>i/8+1/16);buildArena(world,this.group,this.surfaceHandles,!!scene);if(scene)scene.add(this.group);return;}
     this.buildSurface();if(scene)scene.add(this.group);this.buildVisuals(!!scene);if(scene)this.buildScenery();this.buildObstacles(!!scene);
   }
   private calculate(t:number):TrackSample {
+    if(this.arena){const angle=t*Math.PI*2;const p=new THREE.Vector3(Math.sin(angle)*28,0,Math.cos(angle)*28),tangent=p.clone().negate().normalize();return {p,tangent,right:new THREE.Vector3(tangent.z,0,-tangent.x),bank:0,t};}
     const u=((t%1)+1)%1,p=this.curve.getPointAt(u),tangent=this.curve.getTangentAt(u).normalize();
     // A physical takeoff ramp: its crest drops back to the road; there is no artificial flight animation.
     if(u>.123&&u<.148)p.y+=3.1*(u-.123)/.025;
@@ -29,6 +34,7 @@ export class Track {
   at(t:number):TrackSample {return this.calculate(t);}
   point(t:number,lane=0){const s=this.at(t);return s.p.addScaledVector(s.right,lane).addScaledVector(UP,lane*s.bank);}
   project(p:{x:number;y:number;z:number},mainOnly=false):Projection {
+    if(this.arena){const t=(Math.atan2(p.x,p.z)/(Math.PI*2)+1)%1,s=this.at(t);return {t,distance:Math.max(Math.abs(p.x),Math.abs(p.z)),lateral:0,height:0,sample:s};}
     let best=Infinity,index=0,fraction=0,lateral=0;
     for(let i=0;i<this.count;i++){
       const a=this.samples[i].p,b=this.samples[i+1].p,dx=b.x-a.x,dz=b.z-a.z;

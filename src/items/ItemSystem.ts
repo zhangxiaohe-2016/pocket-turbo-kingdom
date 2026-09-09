@@ -8,9 +8,10 @@ export function pickItem(rank:number,count:number,random:number):ItemKind {const
 export interface ItemObject {active:boolean;kind:ItemKind;owner:number;age:number;life:number;bounces:number;target:number;position:THREE.Vector3;previous:THREE.Vector3;velocity:THREE.Vector3;mesh?:THREE.Group;body:RAPIER.RigidBody;collider:RAPIER.Collider}
 export class ItemSystem {
   pool:ItemObject[]=[];boxes:{position:THREE.Vector3;cooldown:number;mesh?:THREE.Group}[]=[];private seed=32901;
+  onHit:(owner:number,target:KartPhysics)=>void=()=>{};
   onEvent:(name:string,kart?:KartPhysics)=>void=()=>{};private ray=new RAPIER.Ray({x:0,y:0,z:0},{x:0,y:0,z:1});private dir=new THREE.Vector3();private delta=new THREE.Vector3();
   constructor(public track:Track,public karts:KartPhysics[],public mode:Mode,scene?:THREE.Scene){
-    for(const t of track.boxTs)for(const lane of [-4,0,4]){const position=track.point(t,lane);position.y+=1.2;let mesh:THREE.Group|undefined;
+    for(const t of track.boxTs)for(const lane of (track.arena?[0]:[-4,0,4])){const position=track.point(t,lane);position.y+=1.2;let mesh:THREE.Group|undefined;
       if(scene){mesh=new THREE.Group();const cube=new THREE.Mesh(new THREE.BoxGeometry(1.35,1.35,1.35),new THREE.MeshStandardMaterial({color:0xb7fbe0,emissive:0x4e957b,emissiveIntensity:.35,metalness:.3,roughness:.23,transparent:true,opacity:.86}));cube.castShadow=true;mesh.add(cube);
         const edges=new THREE.LineSegments(new THREE.EdgesGeometry(cube.geometry),new THREE.LineBasicMaterial({color:0xfff5c2}));mesh.add(edges);
         const gem=new THREE.Mesh(new THREE.OctahedronGeometry(.35),new THREE.MeshStandardMaterial({color:0xffeeaf,emissive:0xffd365,emissiveIntensity:1.3}));mesh.add(gem);scene.add(mesh);mesh.position.copy(position);
@@ -39,7 +40,7 @@ export class ItemSystem {
   deactivate(o:ItemObject){o.active=false;o.collider.setEnabled(false);if(o.mesh)o.mesh.visible=false;}
   update(dt:number,time:number,pickups=true){
     for(const b of this.boxes){b.cooldown=Math.max(0,b.cooldown-dt);if(b.mesh){b.mesh.visible=b.cooldown===0;b.mesh.rotation.set(time*.38,time*.9,.14);b.mesh.position.y=b.position.y+Math.sin(time*2+b.position.x)*.17;}
-      if(!pickups||b.cooldown>0)continue;for(const k of this.karts){if(k.finished||k.position.distanceToSquared(b.position)>3.6)continue;const slot=k.slots.findIndex((v,i)=>!v&&!k.pending[i]);if(slot<0)continue;
+      if(!pickups||b.cooldown>0)continue;for(const k of this.karts){if(k.finished||k.disconnected||k.position.distanceToSquared(b.position)>3.6)continue;const slot=k.slots.findIndex((v,i)=>!v&&!k.pending[i]);if(slot<0)continue;
         k.pending[slot]=this.mode==='time'?'battery':pickItem(k.rank,this.karts.length,this.random());k.rolling[slot]=.85;b.cooldown=6;this.onEvent('pickup',k);break;}
     }
     for(const o of this.pool){if(!o.active)continue;o.age+=dt;o.life-=dt;if(o.life<=0){this.deactivate(o);continue;}o.previous.copy(o.position);
@@ -51,9 +52,9 @@ export class ItemSystem {
           if(hit||p.distance>this.track.halfWidth){if(o.kind==='gear'&&o.bounces===0){this.dir.set(hit?.normal.x??p.sample.right.x,0,hit?.normal.z??p.sample.right.z).normalize();o.velocity.reflect(this.dir);o.position.copy(o.previous);o.bounces++;}else{this.deactivate(o);continue;}}
         }
       }
-      for(const k of this.karts){if(k.finished||k.id===o.owner&&o.age<.9)continue;
+      for(const k of this.karts){if(k.finished||k.disconnected||k.id===o.owner&&o.age<.9)continue;
         this.dir.subVectors(o.position,o.previous);const len=this.dir.lengthSq();this.delta.subVectors(k.position,o.previous);const f=len?THREE.MathUtils.clamp(this.delta.dot(this.dir)/len,0,1):0;this.dir.multiplyScalar(f).add(o.previous);
-        if(this.dir.distanceToSquared(k.position)<(o.kind==='peel'?1.65:2.4)){if(k.hit(o.kind==='firefly'?1.15:1)){this.onEvent('hit',k);this.deactivate(o);break;}}
+        if(this.dir.distanceToSquared(k.position)<(o.kind==='peel'?1.65:2.4)){if(k.hit(o.kind==='firefly'?1.15:1)){this.onHit(o.owner,k);this.onEvent('hit',k);this.deactivate(o);break;}}
       }
       if(o.active){o.body.setNextKinematicTranslation(o.position);if(o.mesh){o.mesh.position.copy(o.position);o.mesh.rotation.y+=dt*7;o.mesh.rotation.z=o.kind==='gear'?Math.PI/2:0;}}
     }

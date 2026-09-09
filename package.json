@@ -4,19 +4,26 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite --host 0.0.0.0",
+    "dev": "node scripts/lan.mjs",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host 0.0.0.0",
     "test": "vitest run",
-    "test:browser": "node scripts/browser-test.mjs"
+    "test:browser": "node scripts/browser-test.mjs",
+    "lan": "node scripts/lan.mjs",
+    "test:lan": "node scripts/lan-protocol-test.mjs && node scripts/lan-test.mjs",
+    "test:arena": "node scripts/arena-test.mjs"
   },
   "dependencies": {
     "@dimforge/rapier3d-compat": "0.17.3",
-    "three": "0.174.0"
+    "three": "0.174.0",
+    "ws": "^8.21.3"
   },
   "devDependencies": {
     "@playwright/test": "1.63.0",
+    "@types/node": "^26.5.0",
     "@types/three": "0.174.0",
+    "@types/ws": "^8.18.1",
+    "esbuild": "^0.28.2",
     "prettier": "3.5.3",
     "typescript": "5.7.3",
     "vite": "6.4.3",
