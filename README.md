@@ -63,6 +63,17 @@ npm run preview    # 仅预览静态生产构建，不包含联机服务器
 
 服务器使用现有 Rapier 物理和道具系统，客户端只发送操作；60 Hz 模拟、30 Hz 输入、20 Hz 状态同步与画面插值。当前面向可信局域网，不提供公网账号、排位或持久化房间。服务器代码修改后需重启 `npm run lan`。
 
+**单人也能发车**：房主独自点击发车时，服务器会补 3 名 AI 车手（`Player.bot`），AI 与真人输入走同一条物理管线，结算一并计入；回到大厅时自动移除。浏览器端大厅按钮会显示「单人发车 · 对战电脑」。
+
+## iPad 原生客户端（iPad mini 2 / iOS 12）
+
+`ios/` 下是一个 **ObjC + SceneKit 薄客户端**，与浏览器版**同房对战**：它不跑物理，只把 20 Hz 权威快照插值成 60 fps 画面并上传触屏输入。之所以走这条路而不是 WebView 套壳，是因为 iPad mini 2 实测只有 WebGL 1、WASM 仅 MVP（Rapier 的 wasm 在 iOS 12 上编译不了）。
+
+- 玩法：单人竞速（1 人 + 3 电脑）/ 局域网 2–4 人；左侧虚拟摇杆 + 右侧油门/刹车/漂移/跳跃/道具
+- 构建：本机写代码 → `ruok`（Mac mini，Xcode）上 `clang -miphoneos-version-min=12.0` → `ldid` 假签名 → `.deb` → Sileo 安装（越狱设备，不受 7 天签名限制）
+- 实测：赛道 93,766 三角形 / **27 draw call** / 4.7 MB 几何；大厅 58–60 fps，比赛中 50–60 fps，常驻约 50 MB
+- 文档：**[系统架构](docs/ARCHITECTURE.md)**（功能划分、数据流、关键技术、取舍）、**[ios/DESIGN.md](ios/DESIGN.md)**（协议契约与几何格式）、**[ios/PocketTurboKingdom/INSTALL.md](ios/PocketTurboKingdom/INSTALL.md)**（打包与排错）
+
 ## 测试
 
 ```bash
@@ -70,6 +81,10 @@ npm test           # 27 个单元/集成测试（固定步长、检查点、道�
 npm run test:arena     # 先启动 npm run lan；竞技场结算、切图、手机防长按和多点触控
 npm run test:lan       # 先启动 npm run lan；协议 + 双浏览器联机测试
 npm run test:browser   # Playwright 真实浏览器端到端（34 项检查）
+
+# iPad 原生客户端（在仓库根目录）
+ios/PocketTurboKingdom/tests/run_tests.sh      # 帧编解码 61 + 协议解析 92 断言（在构建机上跑，已接成打包门槛）
+ios/PocketTurboKingdom/tests/run_ui_tests.sh   # iPad 模拟器 UI 回归（布局/摇杆映射/死区/resize）
 ```
 
 浏览器端到端覆盖：键盘 / 手柄 / CDP 真实多点触控三种输入各跑完 3 圈、
@@ -83,6 +98,7 @@ npm run test:browser   # Playwright 真实浏览器端到端（34 项检查）
 - **TypeScript + Vite** —— 严格类型，构建产物约 145 KB gzip（不含 Rapier WASM）
 - **Web Audio** —— 程序化引擎声与音效，无音频文件
 - **localStorage** —— 分模式分车辆记录、幽灵帧、设置；损坏数据自动清洗
+- **ObjC + SceneKit（iOS 12）** —— iPad 原生薄客户端：自写 RFC6455 over CFStream、`.ptkgeo` 静态几何、Blinn 材质、按材质 flatten 压 draw call
 
 ## 目录结构
 
@@ -101,9 +117,16 @@ src/
   storage/     本地记录
   network/     WebSocket 客户端、房间界面、共享消息协议
   modes/       杯赛数据层（测试用扩展）
-server/        60 Hz 权威物理、房间管理、20 Hz 状态广播
+server/        60 Hz 权威物理、房间管理、20 Hz 状态广播、AI 车手
 tests/         Vitest 单元 + 物理集成测试
 scripts/       Playwright 浏览器端到端
+docs/          系统架构文档
+ios/           iPad 原生客户端（见上）
+  export/         three.js 场景 → .ptkgeo 几何烘焙
+  PocketTurboKingdom/
+    client/        Net（RFC6455 + 协议）、Render（SceneKit）、UI（大厅/HUD/触屏）
+    tests/ tools/  原生单测、模拟器 UI 回归、无头联调工具
+    build.sh       clang + ldid + dpkg-deb（在装有 Xcode 的构建机上跑）
 ```
 
 ## 质量档位

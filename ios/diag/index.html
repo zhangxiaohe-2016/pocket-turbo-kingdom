@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+<title>设备能力探测 · Pocket Turbo Kingdom</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin:0; padding:14px 14px 40px; background:#0f1416; color:#e9f2f1;
+         font:15px/1.5 -apple-system,"PingFang SC",sans-serif; -webkit-text-size-adjust:100%; }
+  h1 { font-size:19px; margin:6px 0 4px; }
+  .sub { color:#8fa3a0; font-size:13px; margin-bottom:14px; }
+  .row { display:flex; justify-content:space-between; gap:10px; padding:8px 10px;
+         border-bottom:1px solid #1e2a2d; }
+  .row b { font-weight:600; }
+  .ok { color:#5ddc8a; } .bad { color:#ff7a6b; } .warn { color:#ffc861; }
+  .big { font-size:22px; font-weight:700; padding:12px 10px; margin:10px 0;
+         border:2px solid #2b3a3d; border-radius:10px; text-align:center; }
+  pre { white-space:pre-wrap; word-break:break-all; background:#151d1f; padding:10px;
+        border-radius:8px; font-size:12px; color:#9fb4b1; }
+</style>
+</head>
+<body>
+<h1>设备能力探测</h1>
+<div class="sub">Pocket Turbo Kingdom · iPad 兼容性体检。请用 <b>Safari</b> 打开此页，等它跑完。</div>
+<div class="big" id="verdict">检测中…</div>
+<div id="rows"></div>
+<div class="sub" id="status" style="margin-top:10px"></div>
+<pre id="raw" hidden></pre>
+
+<script>
+(function () {
+  var out = {};
+  var rows = document.getElementById('rows');
+  var status = document.getElementById('status');
+  function add(name, value, cls) {
+    var d = document.createElement('div');
+    d.className = 'row';
+    d.innerHTML = '<span>' + name + '</span><b class="' + (cls || '') + '">' + value + '</b>';
+    rows.appendChild(d);
+  }
+
+  out.ua = navigator.userAgent;
+  out.screen = screen.width + 'x' + screen.height;
+  out.dpr = window.devicePixelRatio;
+  out.cores = navigator.hardwareConcurrency || 0;
+  add('系统', (navigator.userAgent.match(/OS (\d+[_.]\d+(?:[_.]\d+)?)/) || [, '?'])[1].replace(/_/g, '.'));
+
+  // ---- WebGL 1 ----
+  var canvas = document.createElement('canvas');
+  var gl1 = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+  out.webgl1 = !!gl1;
+  add('WebGL 1', gl1 ? '支持' : '不支持', gl1 ? 'ok' : 'bad');
+  if (gl1) {
+    var dbg = gl1.getExtension('WEBGL_debug_renderer_info');
+    out.glRenderer = dbg ? gl1.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : gl1.getParameter(gl1.RENDERER);
+    out.glVendor = dbg ? gl1.getParameter(dbg.UNMASKED_VENDOR_WEBGL) : gl1.getParameter(gl1.VENDOR);
+    out.glMaxTexture = gl1.getParameter(gl1.MAX_TEXTURE_SIZE);
+    add('GPU', String(out.glRenderer).slice(0, 40), '');
+
+    var ext = ['ANGLE_instanced_arrays', 'OES_element_index_uint', 'OES_standard_derivatives',
+               'EXT_frag_depth', 'OES_texture_float', 'WEBGL_depth_texture', 'EXT_shader_texture_lod'];
+    out.glExtensions = {};
+    var missing = [];
+    for (var i = 0; i < ext.length; i++) {
+      var has = !!gl1.getExtension(ext[i]);
+      out.glExtensions[ext[i]] = has;
+      if (!has) missing.push(ext[i]);
+    }
+    add('WebGL1 扩展', missing.length ? '缺 ' + missing.length + ' 个' : '齐全', missing.length ? 'warn' : 'ok');
+    out.glMaxVertexUniforms = gl1.getParameter(gl1.MAX_VERTEX_UNIFORM_VECTORS);
+    out.glMaxVaryings = gl1.getParameter(gl1.MAX_VARYING_VECTORS);
+    out.glMaxFragmentUniforms = gl1.getParameter(gl1.MAX_FRAGMENT_UNIFORM_VECTORS);
+    out.glMaxVertexAttribs = gl1.getParameter(gl1.MAX_VERTEX_ATTRIBS);
+    add('着色器上限', 'varying ' + out.glMaxVaryings + ' / uniform ' + out.glMaxFragmentUniforms, '');
+  }
+
+  // ---- WebGL 2 ----
+  out.webgl2 = !!document.createElement('canvas').getContext('webgl2');
+  add('WebGL 2', out.webgl2 ? '支持' : '不支持', out.webgl2 ? 'ok' : 'bad');
+
+  // ---- WebAssembly ----
+  out.wasm = typeof WebAssembly === 'object' && typeof WebAssembly.instantiate === 'function';
+  add('WebAssembly', out.wasm ? '支持' : '不支持', out.wasm ? 'ok' : 'bad');
+
+  // 各种 wasm 特性用最小模块探测（编译通过 = 支持）
+  function probe(feature, bytes) {
+    try {
+      var mod = new WebAssembly.Module(new Uint8Array(bytes));
+      new WebAssembly.Instance(mod, {});
+      out['wasm_' + feature] = true;
+    } catch (e) {
+      out['wasm_' + feature] = false;
+      out['wasm_' + feature + '_err'] = String(e && e.message || e).slice(0, 120);
+    }
+    add('WASM ' + feature, out['wasm_' + feature] ? '支持' : '不支持', out['wasm_' + feature] ? 'ok' : 'bad');
+  }
+  if (out.wasm) {
+    // memory.copy (bulk memory) —— Rust 1.82+ 默认开启，rapier 依赖它
+    probe('bulk-memory', [0,97,115,109,1,0,0,0, 1,4,1,96,0,0, 3,2,1,0, 5,3,1,0,1,
+      10,14,1,12,0, 65,0, 65,0, 65,0, 252,10,0,0, 11]);
+    // i32.extend8_s (sign extension)
+    probe('sign-ext', [0,97,115,109,1,0,0,0, 1,5,1,96,0,1,127, 3,2,1,0, 10,7,1,5,0, 65,0, 192, 11]);
+    // 可变全局 + 导出
+    probe('mutable-globals', [0,97,115,109,1,0,0,0, 6,6,1,127,1, 65,0,11]);
+    // i32.trunc_sat_f32_s (non-trapping float-to-int)
+    probe('nontrapping-fptoint', [0,97,115,109,1,0,0,0, 1,5,1,96,0,1,127, 3,2,1,0, 10,11,1,9,0, 67,0,0,0,0, 252,0, 11]);
+    // v128.const SIMD
+    probe('simd', [0,97,115,109,1,0,0,0, 1,5,1,96,0,1,123, 3,2,1,0, 10,22,1,20,0, 253,12,
+      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 11]);
+  }
+
+  // ---- 渲染性能基线：每帧 3 万个三角形级别的小场景 ----
+  function bench(done) {
+    var c = document.createElement('canvas');
+    var size = Math.min(320, Math.max(200, window.innerWidth - 30));
+    c.width = size; c.height = size;
+    c.style.cssText = 'width:' + size + 'px;height:' + size + 'px;border-radius:8px;margin-top:10px';
+    document.body.appendChild(c);
+    var gl = c.getContext('webgl') || c.getContext('webgl2');
+    if (!gl) { done(0); return; }
+    var vs = 'attribute vec3 p;uniform float t;varying vec3 v;void main(){v=p;gl_Position=vec4(p.x,p.y,p.z,1.0);}';
+    var fs = 'precision mediump float;varying vec3 v;uniform float t;void main(){gl_FragColor=vec4(abs(v.x)*0.5+0.2,abs(v.y),0.8,1.0);}';
+    function sh(type, src) {
+      var s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
+      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
+      return s;
+    }
+    var prog = gl.createProgram();
+    gl.attachShader(prog, sh(gl.VERTEX_SHADER, vs));
+    gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, fs));
+    gl.linkProgram(prog); gl.useProgram(prog);
+    // 1000 个四边形 * 2 三角形 = 2000 三角形/帧，配合全屏 overdraw 近似游戏负载
+    var n = 1000, data = new Float32Array(n * 6 * 3);
+    for (var i = 0; i < n; i++) {
+      var x = -1 + (i % 40) / 20, y = -1 + Math.floor(i / 40) / 12.5, s = 0.03;
+      var o = i * 18;
+      data.set([x, y, 0, x + s, y, 0, x, y + s, 0, x + s, y, 0, x + s, y + s, 0, x, y + s, 0], o);
+    }
+    var buf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
+    var loc = gl.getAttribLocation(prog, 'p');
+    gl.enableVertexAttribArray(loc);
+    gl.vertexAttribPointer(loc, 3, gl.FLOAT, false, 0, 0);
+    gl.viewport(0, 0, size, size);
+    var frames = 0, t0 = performance.now();
+    function step() {
+      frames++;
+      for (var k = 0; k < 6; k++) {
+        gl.clearColor(0.05, 0.08, 0.09, 1); gl.clear(gl.COLOR_BUFFER_BIT);
+        gl.drawArrays(gl.TRIANGLES, 0, n * 6);
+      }
+      var el = performance.now() - t0;
+      if (el < 3000) requestAnimationFrame(step);
+      else { out.benchFps = Math.round(frames / (el / 1000)); out.benchDraws = frames * 6; done(out.benchFps); }
+    }
+    requestAnimationFrame(step);
+  }
+
+  function verdict() {
+    var ok = out.webgl1 && out.wasm;
+    var perfect = ok && out.webgl2 && out.wasm_bulk_memory;
+    var v = document.getElementById('verdict');
+    if (perfect) { v.textContent = 'A+ 可直接跑现有 Web 版'; v.style.borderColor = '#5ddc8a'; }
+    else if (ok) { v.textContent = 'B 可跑，但需要 iOS 12 兼容改造'; v.style.borderColor = '#ffc861'; }
+    else { v.textContent = 'C 需要原生重写客户端'; v.style.borderColor = '#ff7a6b'; }
+    add('渲染基线', (out.benchFps || 0) + ' fps @ ' + (out.benchDraws || 0) + ' draws/3s', (out.benchFps || 0) >= 25 ? 'ok' : 'warn');
+    var body = JSON.stringify(out);
+    document.getElementById('raw').hidden = false;
+    document.getElementById('raw').textContent = body;
+    status.textContent = '正在回传结果到 Mac…';
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', '/report', true);
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    xhr.onload = function () { status.textContent = '✅ 已回传（' + xhr.status + '），可以关掉这个页面了。'; };
+    xhr.onerror = function () { status.textContent = '⚠️ 回传失败，请把下面这段文字截图或复制发给 Mac 端。'; };
+    xhr.send(body);
+  }
+
+  bench(function () { verdict(); });
+})();
+</script>
+</body>
+</html>

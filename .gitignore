@@ -5,3 +5,12 @@ playwright-report/
 *.log
 
 .lan/
+
+# macOS
+.DS_Store
+
+# iOS 客户端：构建产物与「由 export-scene.mjs 生成」的几何资产
+# 重新生成：node ios/export/export-scene.mjs
+ios/export/.build/
+ios/PocketTurboKingdom/build/
+ios/PocketTurboKingdom/assets/*.ptkgeo
