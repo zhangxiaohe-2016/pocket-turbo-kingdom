@@ -14,6 +14,24 @@ beforeAll(async () => {
   await RAPIER.init();
 });
 describe("authoritative LAN race", () => {
+  it.each(["quick", "arena"] as const)("runs solo AI opponents in %s", (mode) => {
+    const soloPlayers = Array.from({length: 4}, (_, i) => ({
+      id: `solo-${i}`, name: `Driver ${i}`, kart: i, ready: true, connected: true, bot: i > 0,
+    }));
+    const sim = new ServerRace(soloPlayers, mode);
+    try {
+      const before = sim.karts.map(k => k.position.clone());
+      for (let i = 0; i < 400; i++) sim.step(new Map());
+      expect(sim.snapshot().phase).toBe("racing");
+      expect(sim.karts[0].speed).toBeCloseTo(0);
+      expect(sim.karts.slice(1).every((k, i) => k.position.distanceTo(before[i + 1]) > 3)).toBe(true);
+      if (mode === "quick") {
+        sim.karts[0].finished = true;
+        sim.step(new Map());
+        expect(sim.snapshot().phase).toBe("results");
+      }
+    } finally { sim.dispose(); }
+  });
   it("shares countdown, real inputs, item effects and snapshots", () => {
     const sim = new ServerRace(players);
     try {

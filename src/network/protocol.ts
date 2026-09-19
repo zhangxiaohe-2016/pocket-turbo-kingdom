@@ -3,6 +3,7 @@ import type { ItemKind } from "../config/game";
 export const PROTOCOL_VERSION = 2;
 export type LanMode = "quick" | "arena";
 export interface Player {
+  bot?: boolean;
   id: string;
   name: string;
   kart: number;

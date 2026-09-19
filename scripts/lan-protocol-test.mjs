@@ -24,14 +24,25 @@ async function client() {
   return c;
 }
 try {
+  const solo = await client();
+  solo.send({ type: "join", version: 2, code: "", name: "Solo", kart: 2 });
+  await solo.wait("room");
+  solo.send({ type: "start" });
+  const soloRoom = (await solo.wait("room")).room;
+  assert.equal(soloRoom.players.length, 4);
+  assert.equal(soloRoom.players.filter(p => p.bot).length, 3);
+  assert.equal((await solo.wait("snapshot")).karts.length, 4);
+  solo.ws.close();
+  clients.splice(clients.indexOf(solo), 1);
   const a = await client();
   a.send({ type: "join", version: 2, code: "", name: "A", kart: 0 });
   const room = (await a.wait("room")).room;
-  a.send({ type: "start" });
-  assert.match((await a.wait("error")).message, /至少/);
+
   const b = await client();
   b.send({ type: "join", version: 2, code: room.code, name: "B", kart: 1 });
   await b.wait("room");
+  a.send({ type: "start" });
+  assert.match((await a.wait("error")).message, /准备/);
   b.send({type:'mode',mode:'arena'});assert.match((await b.wait('error')).message,/房主/);
   a.send({type:'ready',ready:true});b.send({type:'ready',ready:true});await new Promise(r=>setTimeout(r,100));b.messages.length=0;
   a.send({type:'mode',mode:'arena'});const changed=await b.wait('room');assert.equal(changed.room.mode,'arena');assert.ok(changed.room.players.every(p=>!p.ready));

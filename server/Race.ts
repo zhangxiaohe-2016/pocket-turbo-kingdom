@@ -6,7 +6,10 @@ import { ItemSystem } from "../src/items/ItemSystem";
 import { KARTS } from "../src/config/game";
 import { emptyControls, type Controls } from "../src/input/InputManager";
 import type { LanMode, Player, Snapshot } from "../src/network/protocol";
+import { AIDriver } from "../src/ai/AIDriver";
+import { ArenaDriver } from "../src/ai/ArenaDriver";
 export class ServerRace {
+  private bots = new Map<number, AIDriver | ArenaDriver>();
   world = new RAPIER.World({ x: 0, y: -9.81, z: 0 });
   queue = new RAPIER.EventQueue(true);
   track: Track;
@@ -35,6 +38,11 @@ export class ServerRace {
     }
     this.queue.drainCollisionEvents(() => {});
     this.items.onHit = (owner, target) => this.race.arenaHit(owner, target);
+    players.forEach((p, i) => {
+      if (p.bot) this.bots.set(i, mode === "arena"
+        ? new ArenaDriver(this.karts[i])
+        : new AIDriver(this.karts[i], [-2.7, 2.8, 0.2][(i - 1 + 3) % 3]));
+    });
     this.race.start();
   }
   step(inputs: Map<string, Controls>) {
@@ -45,7 +53,10 @@ export class ServerRace {
     const enabled =
       this.race.state === "racing" || this.race.state === "finished";
     this.karts.forEach((k, i) => {
-      const c = inputs.get(this.players[i].id) ?? emptyControls();
+      const bot = this.bots.get(i);
+      const c = bot && enabled
+        ? bot.update(dt, Math.max(...this.karts.map(k => k.progress)), this.items)
+        : inputs.get(this.players[i].id) ?? emptyControls();
       if (k.needsReset || c.reset) k.reset();
       if (enabled && !k.finished) {
         if (c.item1) this.items.use(k, 0, c.backward);
@@ -89,6 +100,7 @@ export class ServerRace {
       this.karts.every(
         (k, i) => k.finished || this.disconnected.has(this.players[i].id),
       ) ||
+      (this.bots.size > 0 && this.karts.every((k, i) => this.players[i].bot || k.finished || this.disconnected.has(this.players[i].id))) ||
       (this.finishedAt > 0 && this.tick - this.finishedAt > 60 * 60) ||
       this.tick > 60 * 600;
   }

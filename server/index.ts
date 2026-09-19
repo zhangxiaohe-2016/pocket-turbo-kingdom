@@ -164,8 +164,17 @@ wss.on("connection", (ws) => {
       }
       if (m.type === "start" && r.info.phase === "lobby") {
         if (r.info.host !== s.id) return error(s, "只有房主可以发车");
-        if (r.clients.size < 2 || !r.info.players.every((p) => p.ready))
-          return error(s, "至少 2 人，且所有车手准备后才能发车");
+        if (r.clients.size > 1 && !r.info.players.every((p) => p.ready))
+          return error(s, "多人比赛需所有车手准备后才能发车");
+        // A lone driver gets three AI opponents. Multiplayer remains human-only.
+        if (r.clients.size === 1) {
+          const human = r.info.players[0];
+          human.ready = true;
+          for (let i = 1; i <= 3; i++) r.info.players.push({
+            id: `bot-${randomUUID()}`, name: `电脑车手 ${i}`,
+            kart: (human.kart + i) % KARTS.length, ready: true, connected: true, bot: true,
+          });
+        }
         r.race = new ServerRace(
           r.info.players.map((p) => ({ ...p })),
           r.info.mode,
@@ -182,7 +191,7 @@ wss.on("connection", (ws) => {
         r.race?.dispose();
         r.race = undefined;
         r.info.phase = "lobby";
-        r.info.players = r.info.players.filter((p) => p.connected);
+        r.info.players = r.info.players.filter((p) => p.connected && !p.bot);
         r.info.players.forEach((p) => (p.ready = false));
         broadcast(r);
       }
@@ -243,7 +252,7 @@ wss.on("connection", (ws) => {
       return;
     }
     if (r.info.phase === "lobby")
-      r.info.players = r.info.players.filter((p) => p.connected);
+      r.info.players = r.info.players.filter((p) => p.connected && !p.bot);
     if (r.info.host === s.id) r.info.host = r.clients.keys().next().value!;
     broadcast(r);
   });

@@ -27,7 +27,7 @@ export class LanClient {
       .querySelector("#home-actions")!
       .insertAdjacentHTML(
         "beforeend",
-        '<button id="lan-btn" class="secondary-button">局域网竞技 · 2–4 人 ↗</button>',
+        '<button id="lan-btn" class="secondary-button">局域网竞技 · 1–4 人 ↗</button>',
       );
     root.insertAdjacentHTML(
       "beforeend",
@@ -193,7 +193,8 @@ export class LanClient {
       : "准备";
     const start = document.querySelector<HTMLButtonElement>("#lan-start")!;
     start.hidden = r.host !== this.you;
-    start.disabled = r.players.length < 2 || !r.players.every((p) => p.ready);
+    start.disabled = r.players.length > 1 && !r.players.every((p) => p.ready);
+    start.textContent = r.players.length === 1 ? "单人发车 · 对战电脑" : "全员准备后发车";
     this.status.textContent =
       r.host === this.you
         ? "你是房主 · 全员准备后点击发车"
